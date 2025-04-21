@@ -1,6 +1,7 @@
 import win32api
 import win32gui
 import win32con
+import win32process
 import time
 import threading
 import tkinter as tk
@@ -12,7 +13,8 @@ def get_game_windows():
     def callback(hwnd, _):
         title = win32gui.GetWindowText(hwnd)
         if "NosTale" in title:
-            windows.append((hwnd, title))
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            windows.append((hwnd, title, pid))
     win32gui.EnumWindows(callback, None)
     return windows
 
@@ -29,9 +31,7 @@ def clicking_thread(game_hwnd, times, delay, key):
         send_key_to_window(game_hwnd, key)
         clicks += 1
         time.sleep(delay)
-        if clicks % 10 == 0:
-            print(f"Kliknięć: {clicks}")
-    print("Zakończono klikanie.")
+    messagebox.showwarning("Zakończono klikanie.")
 
 def start_clicking():
     global click_thread, running
@@ -53,13 +53,19 @@ def start_clicking():
 def stop_clicking():
     global running
     running = False
-
+    
 def refresh_clients():
-    global game_windows
+    global game_windows, listbox
     game_windows = get_game_windows()
     listbox.delete(0, tk.END)
-    for hwnd, title in game_windows:
-        listbox.insert(tk.END, title)
+    for hwnd, title, pid in game_windows:
+        if f"[{pid}]" not in title:
+            new_title = f"{title} [{pid}]"
+            win32gui.SetWindowText(hwnd, new_title)
+        else:
+            new_title = title
+        listbox.insert(tk.END, new_title)
+
 
 def on_press(key):
     if key == keyboard.Key.f7:
@@ -87,11 +93,11 @@ refresh_clients()
 tk.Button(left_frame, text="Refresh", command=refresh_clients).pack()
 
 tk.Label(left_frame, text="Times:").pack()
-times_var = tk.StringVar(value="5")
+times_var = tk.StringVar(value="999")
 tk.Entry(left_frame, textvariable=times_var).pack()
 
 tk.Label(left_frame, text="Delay (s):").pack()
-delay_var = tk.StringVar(value="0.5")
+delay_var = tk.StringVar(value="0.75")
 tk.Entry(left_frame, textvariable=delay_var).pack()
 
 tk.Label(left_frame, text="Key to Press:").pack()
